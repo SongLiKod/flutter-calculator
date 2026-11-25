@@ -1,0 +1,20 @@
+name: neon_calculator
+description: 霓虹炫酷计算器 - Neon Calculator，一款带科学模式、历史记录与动效的炫酷计算器。
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.5.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

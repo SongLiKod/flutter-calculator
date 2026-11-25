@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 图标前景：霓虹等号 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M36.5,43 H71.5 A4.5,4.5 0 0 1 71.5,52 H36.5 A4.5,4.5 0 0 1 36.5,43 Z"
+        android:fillColor="#FFFFFFFF" />
+    <path
+        android:pathData="M36.5,56 H71.5 A4.5,4.5 0 0 1 71.5,65 H36.5 A4.5,4.5 0 0 1 36.5,56 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

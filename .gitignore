@@ -1,0 +1,17 @@
+*.iml
+.gradle/
+.idea/
+build/
+captures/
+.externalNativeBuild
+.cxx
+local.properties
+*.apk
+*.aab
+*.jks
+key.properties
+.dart_tool/
+.pub-cache/
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies

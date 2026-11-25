@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 启动画面：深色底 + 霓虹光晕 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/launch_background" />
+
+    <!-- 顶部紫色光晕 -->
+    <item
+        android:width="420dp"
+        android:height="420dp"
+        android:gravity="top|center_horizontal">
+        <shape android:shape="oval">
+            <gradient
+                android:angle="270"
+                android:centerColor="#337C4DFF"
+                android:endColor="#007C4DFF"
+                android:startColor="#807C4DFF" />
+        </shape>
+    </item>
+
+    <!-- 底部粉色光晕 -->
+    <item
+        android:width="380dp"
+        android:height="380dp"
+        android:gravity="bottom|center_horizontal">
+        <shape android:shape="oval">
+            <gradient
+                android:angle="90"
+                android:centerColor="#22FF4D94"
+                android:endColor="#00FF4D94"
+                android:startColor="#66FF4D94" />
+        </shape>
+    </item>
+</layer-list>
