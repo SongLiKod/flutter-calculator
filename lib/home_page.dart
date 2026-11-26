@@ -10,6 +10,7 @@ import 'calculator/store.dart';
 import 'theme/neon_theme.dart';
 import 'widgets/aurora_background.dart';
 import 'widgets/display.dart';
+import 'widgets/fullscreen_display.dart';
 import 'widgets/history_sheet.dart';
 import 'widgets/neon_button.dart';
 import 'widgets/neon_chip.dart';
@@ -661,6 +662,38 @@ class _HomePageState extends State<HomePage> {
     _showCopied('已复制结果');
   }
 
+  /// 长按结果：复制人民币大写（56 → 伍拾陆元整）。
+  void _copyResultUpper() {
+    if (_isError || _result.isEmpty) return;
+    final text = toChineseUpper(_result.replaceAll(',', ''));
+    Clipboard.setData(ClipboardData(text: text));
+    _showCopied('已复制大写');
+  }
+
+  /// 展示用算式：等号后显示来源等式，否则显示输入中的表达式。
+  String get _displayExpression => groupExpression(
+        _justEvaluated && _evaluatedSource.isNotEmpty
+            ? _evaluatedSource
+            : _expr,
+      );
+
+  /// 全屏查看：超大结果 + 算式 + 完整纸带。
+  void _openFullscreen() {
+    HapticFeedback.lightImpact();
+    showFullscreenDisplay(
+      context,
+      tape: _tape,
+      picked: _tapePicked,
+      expression: _displayExpression,
+      result: _result,
+      isError: _isError,
+      onCopyExpression: _copyExpression,
+      onCopyResult: _copyResult,
+      onCopyResultUpper: _copyResultUpper,
+      onPickTape: _pickTape,
+    );
+  }
+
   // ------------------------------------------------------------------ 界面
 
   void _toggleScience() {
@@ -1160,16 +1193,21 @@ class _HomePageState extends State<HomePage> {
                       child: CalcDisplay(
                         tape: _tape,
                         picked: _tapePicked,
-                        expression: groupExpression(
-                          _justEvaluated && _evaluatedSource.isNotEmpty
-                              ? _evaluatedSource
-                              : _expr,
-                        ),
+                        expression: _displayExpression,
                         result: _result,
                         isError: _isError,
                         onCopyExpression: _copyExpression,
                         onCopyResult: _copyResult,
+                        onCopyResultUpper: _copyResultUpper,
                         onPickTape: _pickTape,
+                        onCopyMenu: (entry, pos) => showTapeTotalMenu(
+                          context,
+                          entry: entry,
+                          tape: _tape,
+                          position: pos,
+                          showTip: _showCopied,
+                        ),
+                        onOpenFullscreen: _openFullscreen,
                       ),
                     ),
                     Expanded(

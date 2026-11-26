@@ -274,6 +274,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('已复制结果'), findsOneWidget);
     expect(copied, contains('56'));
+
+    // 长按大结果 → 复制人民币大写
+    await tester.longPress(find.text('56').last);
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('已复制大写'), findsOneWidget);
+    expect(copied.last, '伍拾陆元整');
   });
 
   testWidgets('科学键盘两页切换', (tester) async {
@@ -294,5 +300,146 @@ void main() {
     await tapKey(tester, '=');
     expect(find.text('0^2'), findsWidgets);
     expect(find.text('0'), findsWidgets);
+  });
+
+  testWidgets('全屏查看：进入、复制、点纸带行取用、退出', (tester) async {
+    final copied = mockClipboard(tester);
+    await pumpApp(tester);
+
+    // 空纸带也能进入：显示占位提示，关闭按钮退出
+    await tester.tap(find.byIcon(Icons.fullscreen_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('全屏查看'), findsOneWidget);
+    expect(find.textContaining('点行可取用结果'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('全屏查看'), findsNothing);
+
+    // 7×8 = 56 后进入全屏
+    await tapKey(tester, '7');
+    await tapKey(tester, '×');
+    await tapKey(tester, '8');
+    await tapKey(tester, '=');
+    await tester.tap(find.byIcon(Icons.fullscreen_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('全屏查看'), findsOneWidget);
+    expect(find.text('7×8'), findsWidgets); // 主界面与全屏各一处
+    expect(find.text('Σ 56'), findsWidgets);
+    expect(find.byKey(const ValueKey('fullscreen-result')), findsOneWidget);
+
+    // 全屏内长按纸带行：四项菜单可弹出，反馈走行内提示条（主界面 SnackBar 被全屏挡住）
+    await tester.longPress(find.text('7×8').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('复制和'), findsOneWidget);
+    expect(find.text('复制和（大写）'), findsOneWidget);
+    expect(find.text('复制和的结果链'), findsOneWidget);
+    expect(find.text('复制和的算式链'), findsOneWidget);
+    await tester.tap(find.text('复制和的算式链'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('已复制和的算式链')), findsOneWidget);
+    expect(copied.last, '7×8 = 56');
+
+    // 全屏内复制结果：行内提示（带 key，避免与主界面 SnackBar 文本混淆）
+    await tester.tap(find.byKey(const ValueKey('fullscreen-copy-result')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('已复制结果')), findsOneWidget);
+    expect(copied, contains('56'));
+
+    // 长按大结果 → 复制人民币大写（行内提示）
+    await tester.longPress(find.byKey(const ValueKey('fullscreen-result')));
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byKey(const ValueKey('已复制大写')), findsOneWidget);
+    expect(copied.last, '伍拾陆元整');
+
+    // 点纸带行 → 取用结果并自动关闭
+    await tester.tap(find.text('7×8').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('全屏查看'), findsNothing);
+    expect(find.text('7×8'), findsWidgets); // 取入后算式行显示来源等式
+
+    // Esc 退出（等同系统返回键）
+    await tester.tap(find.byIcon(Icons.fullscreen_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('全屏查看'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('全屏查看'), findsNothing);
+    expect(find.text('7×8'), findsWidgets); // 退出后计算状态不变
+  });
+
+  testWidgets('长按纸带行：复制和 / 大写 / 结果链 / 算式链', (tester) async {
+    final copied = mockClipboard(tester);
+    await pumpApp(tester);
+
+    await tapKey(tester, '7');
+    await tapKey(tester, '×');
+    await tapKey(tester, '8');
+    await tapKey(tester, '=');
+    await tapKey(tester, '6');
+    await tapKey(tester, '×');
+    await tapKey(tester, '7');
+    await tapKey(tester, '=');
+
+    // 长按纸带行 → 四项菜单
+    await tester.longPress(find.text('7×8'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('复制和'), findsOneWidget);
+    expect(find.text('复制和（大写）'), findsOneWidget);
+    expect(find.text('复制和的结果链'), findsOneWidget);
+    expect(find.text('复制和的算式链'), findsOneWidget);
+
+    // 复制和 → 纯数值（无千分位）
+    await tester.tap(find.text('复制和'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(copied.last, '56');
+    expect(find.text('已复制和'), findsOneWidget);
+
+    // 长按首行 → 复制和（大写）
+    await tester.longPress(find.text('7×8'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('复制和（大写）'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(copied.last, '伍拾陆元整');
+    // 上一条 SnackBar 可能还在退场，等待新提示排队进场完成
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('已复制和（大写）'), findsOneWidget);
+
+    // 长按第二行（纸带倒序，first 即较新一行）→ 结果链
+    await tester.longPress(find.text('6×7').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('复制和的结果链'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(copied.last, '56 + 42 = 98');
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('已复制和的结果链'), findsOneWidget);
+
+    // 再长按首行 → 算式链
+    await tester.longPress(find.text('7×8'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('复制和的算式链'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(copied.last, '7×8 = 56');
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('已复制和的算式链'), findsOneWidget);
+
+    // 菜单不影响「点按取用」：点第一笔再点第二笔连续累加
+    await tester.tap(find.text('7×8'));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tapKey(tester, '+');
+    await tester.tap(find.text('6×7'));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('56+42'), findsOneWidget);
   });
 }

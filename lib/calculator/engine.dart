@@ -416,7 +416,13 @@ String formatNumber(double raw, {bool grouped = true}) {
     return '${mantissa}e$sign${exp.abs()}';
   }
 
-  var text = value.toStringAsFixed(10);
+  // 小数位数按 12 位有效数字决定（整数部分占几位就留几位），
+  // 让 toStringAsFixed 的取整吸收掉 double 末位噪声；若固定输出 10 位小数，
+  // 大数会把噪声放大出来（如 1234000000.2999999523，应为 1234000000.3）。
+  // 小数（整数部分 ≤ 2 位）仍取满 10 位，行为与原先一致。
+  final intDigits = value.abs().truncate().toString().length;
+  final decimals = (12 - intDigits).clamp(0, 10).toInt();
+  var text = value.toStringAsFixed(decimals);
   if (text.contains('.')) {
     text = text.replaceAll(RegExp(r'0+$'), '');
     text = text.replaceAll(RegExp(r'\.$'), '');
@@ -428,6 +434,88 @@ String formatNumber(double raw, {bool grouped = true}) {
   final fraction = dot < 0 ? '' : body.substring(dot);
   final head = grouped ? _groupThousands(integer) : integer;
   return '${negative ? '-' : ''}$head$fraction';
+}
+
+/// 把纯数字文本（`formatNumber(grouped: false)` 的输出）转为人民币大写。
+/// `56146.5` → `伍万陆仟壹佰肆拾陆元伍角`；整数带「整」（`56` → `伍拾陆元整`）、
+/// 负数带「负」；小数依次为角分厘毫丝忽微纤沙尘，逐位转换、不四舍五入。
+/// 科学计数法或无法识别的输入原样返回。
+String toChineseUpper(String plain) {
+  var text = plain.trim();
+  if (text.isEmpty || text.contains('e') || text.contains('E')) return plain;
+  var negative = false;
+  if (text.startsWith('-') || text.startsWith('−')) {
+    negative = true;
+    text = text.substring(1);
+  }
+  final dot = text.indexOf('.');
+  final intText = dot < 0 ? text : text.substring(0, dot);
+  final fracText = dot < 0 ? '' : text.substring(dot + 1);
+  if (!RegExp(r'^\d+$').hasMatch(intText)) return plain;
+  if (fracText.isNotEmpty && !RegExp(r'^\d+$').hasMatch(fracText)) {
+    return plain;
+  }
+
+  const digitChars = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
+  const smallUnits = ['', '拾', '佰', '仟']; // 组内：个、十、百、千
+  const bigUnits = ['', '万', '亿', '万亿']; // 组后缀：个级、万级、亿级…
+  const fracUnits = ['角', '分', '厘', '毫', '丝', '忽', '微', '纤', '沙', '尘'];
+
+  // 整数从右按 4 位分组（个级 / 万级 / 亿级…），超出可表达范围原样返回。
+  final groups = <String>[];
+  var rest = intText;
+  while (rest.isNotEmpty) {
+    final start = rest.length > 4 ? rest.length - 4 : 0;
+    groups.add(rest.substring(start));
+    rest = rest.substring(0, start);
+  }
+  if (groups.length > bigUnits.length) return plain;
+
+  final buf = StringBuffer();
+  var hasInt = false; // 整数部分是否输出过非零内容
+  var pendingZero = false; // 是否需要补一个「零」
+  for (var g = groups.length - 1; g >= 0; g--) {
+    final digits4 = groups[g].padLeft(4, '0');
+    var groupEmitted = false;
+    for (var pos = 3; pos >= 0; pos--) {
+      // pos 是位权（3=千…0=个），字符串索引与之相反（0=千…3=个）。
+      final digit = digits4.codeUnitAt(3 - pos) - 0x30;
+      if (digit == 0) {
+        pendingZero = true;
+        continue;
+      }
+      if (pendingZero && hasInt) buf.write('零');
+      buf.write(digitChars[digit]);
+      buf.write(smallUnits[pos]);
+      hasInt = true;
+      groupEmitted = true;
+      pendingZero = false;
+    }
+    if (groupEmitted) buf.write(bigUnits[g]);
+  }
+  if (hasInt) buf.write('元');
+
+  // 小数：角分厘…；整数为 0 时直接写小数（0.5 → 伍角）。
+  var hasFrac = false;
+  var fracPendingZero = false;
+  for (var i = 0; i < fracText.length && i < fracUnits.length; i++) {
+    final digit = fracText.codeUnitAt(i) - 0x30;
+    if (digit == 0) {
+      fracPendingZero = true;
+      continue;
+    }
+    // 角为 0 而后面有值：整数与小数之间补一个零（100.05 → 壹佰元零伍分）。
+    if (fracPendingZero && (hasInt || hasFrac)) buf.write('零');
+    buf.write(digitChars[digit]);
+    buf.write(fracUnits[i]);
+    fracPendingZero = false;
+    hasFrac = true;
+  }
+  if (!hasFrac && hasInt) buf.write('整');
+
+  final body = buf.toString();
+  if (body.isEmpty) return '零元整'; // 0 / 0.00
+  return negative ? '负$body' : body;
 }
 
 /// 为表达式中的普通数字添加千分位（含科学计数法时原样返回）。
