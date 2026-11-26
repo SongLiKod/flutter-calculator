@@ -79,6 +79,13 @@ class _HomePageState extends State<HomePage> {
   String? _progError;
 
   final List<HistoryEntry> _history = [];
+
+  /// 本次会话的计算纸带：每次按 `=` 追加一条，按 C 清空时结束本次计算。
+  final List<HistoryEntry> _tape = [];
+
+  /// 纸带中最近点取的等式（高亮提示，直到清空）。
+  HistoryEntry? _tapePicked;
+
   final Random _random = Random();
   final FocusNode _focusNode = FocusNode();
 
@@ -350,13 +357,49 @@ class _HomePageState extends State<HomePage> {
     _expr = _expr.substring(0, _expr.length - 1);
   }
 
-  void _clear() {
+  /// 重置显示与输入状态（不动纸带）。
+  void _resetScreen() {
     _expr = '';
     _result = '0';
     _isError = false;
     _errorState = false;
     _justEvaluated = false;
     _evaluatedSource = '';
+  }
+
+  /// 结束本次计算：屏幕归零并清空纸带。
+  void _clear() {
+    _resetScreen();
+    _tape.clear();
+    _tapePicked = null;
+  }
+
+  /// 点击纸带中的等式：把该等式的结果放入计算区。
+  /// 计算区为空或刚按过 `=` 时作为新起点；末尾是运算符或左括号时直接接上；
+  /// 末尾是数字时自动补 `+`，方便连续累加。
+  void _pickTape(HistoryEntry entry) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _resetIfError();
+      final value = entry.result.startsWith('-')
+          ? '(−${entry.result.substring(1)})'
+          : entry.result;
+      _tapePicked = entry;
+      if (_expr.isEmpty || _justEvaluated) {
+        _expr = value;
+        _evaluatedSource = entry.expression;
+        _justEvaluated = true;
+      } else if (_endsWithOperator(_expr) || _endsWithOpen(_expr)) {
+        _expr = '$_expr$value';
+        _evaluatedSource = '';
+        _justEvaluated = false;
+      } else if (_endsWithValue(_expr)) {
+        _expr = '$_expr+$value';
+        _evaluatedSource = '';
+        _justEvaluated = false;
+      }
+      _syncPreview();
+    });
   }
 
   // ------------------------------------------------------------------ 记忆
@@ -402,17 +445,19 @@ class _HomePageState extends State<HomePage> {
   void _equals() {
     if (_expr.isEmpty) return;
     if (_errorState) {
-      _clear();
+      _resetScreen();
       return;
     }
     _evaluatedSource = _expr;
     try {
       final value = evaluate(_expr, degrees: _degrees);
       final raw = formatNumber(value, grouped: false);
+      final now = DateTime.now();
       _lastAnswer = raw;
-      _history.insert(0, HistoryEntry(_expr, raw, DateTime.now()));
+      _history.insert(0, HistoryEntry(_expr, raw, now));
       if (_history.length > AppStore.maxHistory) _history.removeLast();
       AppStore.saveHistory(_history);
+      _tape.add(HistoryEntry(_expr, raw, now));
       _expr = raw;
       _result = groupExpression(raw);
       _isError = false;
@@ -1110,8 +1155,11 @@ class _HomePageState extends State<HomePage> {
                   _buildHeader(),
                   if (_mode == AppMode.calc) ...[
                     Expanded(
-                      flex: 32,
+                      // 显示区（含纸带）38 / 键盘 62
+                      flex: 38,
                       child: CalcDisplay(
+                        tape: _tape,
+                        picked: _tapePicked,
                         expression: groupExpression(
                           _justEvaluated && _evaluatedSource.isNotEmpty
                               ? _evaluatedSource
@@ -1121,10 +1169,11 @@ class _HomePageState extends State<HomePage> {
                         isError: _isError,
                         onCopyExpression: _copyExpression,
                         onCopyResult: _copyResult,
+                        onPickTape: _pickTape,
                       ),
                     ),
                     Expanded(
-                      flex: 68,
+                      flex: 62,
                       child: AnimatedSize(
                         duration: const Duration(milliseconds: 320),
                         curve: Curves.easeOutCubic,

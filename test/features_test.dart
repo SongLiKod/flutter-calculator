@@ -224,7 +224,7 @@ void main() {
     expect(find.text('7×8'), findsOneWidget);
 
     await press(LogicalKeyboardKey.enter);
-    expect(find.text('56'), findsOneWidget);
+    expect(find.text('56'), findsWidgets); // 结果行与纸带各一处
 
     await press(LogicalKeyboardKey.backspace);
     expect(find.text('5'), findsWidgets);
@@ -269,7 +269,8 @@ void main() {
     expect(find.text('已复制算式'), findsOneWidget);
     expect(copied, contains('7×8'));
 
-    await tester.tap(find.text('56'));
+    // 结果在纸带与大结果各出现一次：取最后（大结果）进行点按复制
+    await tester.tap(find.text('56').last);
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('已复制结果'), findsOneWidget);
     expect(copied, contains('56'));
@@ -291,7 +292,7 @@ void main() {
     await tapKey(tester, '0');
     await tapKey(tester, 'x²');
     await tapKey(tester, '=');
-    expect(find.text('0^2'), findsOneWidget);
+    expect(find.text('0^2'), findsWidgets);
     expect(find.text('0'), findsWidgets);
   });
 }
